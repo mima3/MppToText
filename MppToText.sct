@@ -1,0 +1,143 @@
+<scriptlet>
+
+<implements type="Automation" id="dispatcher">
+	<property name="PluginEvent">
+	          <get/>
+        </property>
+	<property name="PluginDescription">
+	          <get/>
+        </property>
+	<property name="PluginFileFilters">
+	          <get/>
+        </property>
+	<property name="PluginIsAutomatic">
+	          <get/>
+        </property>
+      	<method name="UnpackFile"/>
+      	<method name="PackFile"/>
+</implements>
+
+<script language="VBS">
+
+'/////////////////////////////////////////////////////////////////////////////
+'    This is a plugin for WinMerge.
+'    It will display the text content of MS Project files.
+'    This Script port from ExcelToText.
+'
+'    ---------------------------------------------------------------
+'    It will display the text content of MS Excel files.
+'    Copyright (C) 2005 Takashi Sawanaka
+'
+'    This program is free software; you can redistribute it and/or modify
+'    it under the terms of the GNU General Public License as published by
+'    the Free Software Foundation; either version 2 of the License, or
+'    (at your option) any later version.
+'
+'    This program is distributed in the hope that it will be useful,
+'    but WITHOUT ANY WARRANTY; without even the implied warranty of
+'    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+'    GNU General Public License for more details.
+'
+'    You should have received a copy of the GNU General Public License
+'    along with this program; if not, write to the Free Software
+'    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+Option Explicit
+
+Function get_PluginEvent()
+         get_PluginEvent = "FILE_PACK_UNPACK"
+End Function
+
+Function get_PluginDescription()
+         get_PluginDescription = "MppToText"
+End Function
+
+Function get_PluginFileFilters()
+         get_PluginFileFilters = "\.mpp(\..*)?$"
+End Function
+
+Function get_PluginIsAutomatic()
+         get_PluginIsAutomatic = True
+End Function
+
+Function UnpackFile(fileSrc, fileDst, pbChanged, pSubcode)
+	Dim fo
+	Dim fso
+	Dim mp
+	Dim prj
+	Dim targetPrj
+	Dim cmp
+	Dim tsk
+	Dim pTsk
+	Dim r
+	Set targetPrj = Nothing
+
+	Set fso = CreateObject("Scripting.FileSystemObject")
+	Set fo = fso.CreateTextFile(fileDst, True, True)
+
+
+	
+	Set mp = CreateObject("MSProject.Application")
+	mp.DisplayAlerts = False
+	mp.AutomationSecurity  = 3 ' msoAutomationSecurityForceDisable
+	mp.FileOpenEx fileSrc, True
+
+	' Activationウィンドウが表示される場合はメッセージボックスを表示して
+	' Activationウィンドウを閉じるようにする。
+	' MsgBox "ActivationWindowを閉じてください"
+
+	For Each prj In mp.Projects
+		If prj.Name = fso.GetFileName(fileSrc) Then
+			Set targetPrj = prj
+			Exit For
+		End If
+	Next
+	If targetPrj Is Nothing Then
+		Exit Function
+	End If
+
+	On Error Resume Next
+	For Each tsk In targetPrj.tasks
+		fo.WriteLine "TaskID:" & tsk.id
+		fo.WriteLine "  Name:" & tsk.name
+		fo.WriteLine "  OutlineLevel:" & tsk.OutlineLevel
+		fo.WriteLine "  Notes:" & tsk.Notes
+		fo.WriteLine "  Start:" & tsk.Start
+		fo.WriteLine "  Finish:" & tsk.Finish
+		fo.WriteLine "  PercentComplete:" & tsk.PercentComplete
+		fo.WriteLine "  ActualStart:" & tsk.ActualStart
+		fo.WriteLine "  ActualFinish:" & tsk.ActualFinish
+		fo.WriteLine "  BaselineStart:" & tsk.BaselineStart
+		fo.WriteLine "  BaselineFinish:" & tsk.BaselineFinish
+		fo.WriteLine "  ResourceNames:" & tsk.ResourceNames
+	Next
+	For Each cmp In targetPrj.VBProject.VBComponents
+		fo.WriteLine "[CodeModule." & cmp.Name & "]"
+		If cmp.CodeModule.CountOfLines > 0 Then
+			fo.WriteLine cmp.CodeModule.Lines(1, cmp.CodeModule.CountOfLines)
+		End If
+		fo.WriteLine ""
+	Next
+
+	fo.WriteLine "Last Error"
+	fo.WriteLine Err.Description 
+
+	mp.Quit
+	Set mp = Nothing
+	Set prj = Nothing
+
+	fo.Close
+	Set fo = Nothing
+	Set fso = Nothing
+
+	pbChanged = True
+	pSubcode = 0
+	UnpackFile = True
+
+End Function
+
+Function PackFile(fileSrc, fileDst, pbChanged, pSubcode)
+	PackFile = False
+End Function
+
+</script>
+</scriptlet>
